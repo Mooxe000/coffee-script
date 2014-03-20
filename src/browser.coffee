@@ -74,7 +74,8 @@ runScripts = ->
           (param) ->
             coffees[i] = param
             execute()
-          options
+          ,
+          options,
           true
       else
         options.sourceFiles = ['embedded']

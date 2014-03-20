@@ -166,6 +166,28 @@ task 'build:browser', 'rebuild the merged script for inclusion in the browser', 
   console.log "built ... running browser tests:"
   invoke 'test:browser'
 
+task 'build:seajs', 'rebuild the merged script for seajs in the browser', ->
+  code = ''
+  for name in ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script']
+    code += """
+      define('./#{name}', [],function(require, exports, module) {
+        #{fs.readFileSync "lib/coffee-script/#{name}.js"}
+        return module.exports;
+      });
+    """
+  code = """
+    define(function(require, exports, module) {
+      var CoffeeScript = function() {
+        #{code}
+        return require('./coffee-script');
+      }();
+      return module.exports = CoffeeScript;
+    });
+  """
+  fs.writeFileSync 'extras/coffee-script.js', header + '\n' + code
+  {code} = require('uglify-js').minify code, fromString: true
+  fs.writeFileSync 'extras/coffee-script.min.js', header + '\n' + code
+  console.log "build done ..."
 
 task 'doc:site', 'watch and continually rebuild the documentation for the website', ->
   source = 'documentation/index.html.js'
