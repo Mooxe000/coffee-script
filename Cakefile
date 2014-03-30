@@ -163,9 +163,9 @@ task 'build:browser', 'rebuild the merged script for inclusion in the browser', 
       }
     }(this));
   """
-  fs.writeFileSync 'extras/coffee-script.debug.js', header + '\n' + code
-  {code} = require('uglify-js').minify code, fromString: true
   fs.writeFileSync 'extras/coffee-script.js', header + '\n' + code
+  {code} = require('uglify-js').minify code, fromString: true
+  fs.writeFileSync 'extras/coffee-script.min.js', header + '\n' + code
   console.log "built ... running browser tests:"
   invoke 'test:browser'
   console.log "build done ..."
