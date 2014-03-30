@@ -135,19 +135,17 @@ task 'build:parser', 'rebuild the Jison parser (run build first)', ->
   parser = require('./lib/coffee-script/grammar').parser
   fs.writeFile 'lib/coffee-script/parser.js', parser.generate()
 
-wrapCode = (hasbrowser) ->
-  packageArr = ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script']
-  packageArr.push 'browser' if hasbrowser?
+task 'build:browser', 'rebuild the merged script for inclusion in the browser', ->
   code = ''
-  for name in packageArr
+  for name in ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script', 'browser']
     code += """
-    require['./#{name}'] = (function() {
-      var exports = {}, module = {exports: exports};
-      #{fs.readFileSync "lib/coffee-script/#{name}.js"}
-      return module.exports;
-    })();
+      require['./#{name}'] = (function() {
+        var exports = {}, module = {exports: exports};
+        #{fs.readFileSync "lib/coffee-script/#{name}.js"}
+        return module.exports;
+      })();\n\n
     """
-  code += """
+  code = """
     (function(root) {
       var CoffeeScript = function() {
         function require(path){ return require[path]; }
@@ -165,21 +163,11 @@ wrapCode = (hasbrowser) ->
       }
     }(this));
   """
-  code
-
-task 'build:browser', 'rebuild the merged script for inclusion in the browser', ->
-  code = wrapCode(true)
-  minCode = require('uglify-js').minify code, fromString: true
-  fs.writeFileSync 'extras/coffee-script.browser.debug.js', header + '\n' + code
-  fs.writeFileSync 'extras/coffee-script.browser.js', header + '\n' + minCode
-  invoke 'test:browser'
-
-task 'build:module', 'rebuild the merged script for seajs in the browser', ->
-  code = wrapCode()
-  minCode = require('uglify-js').minify code, fromString: true
   fs.writeFileSync 'extras/coffee-script.debug.js', header + '\n' + code
-  fs.writeFileSync 'extras/coffee-script.js', header + '\n' + minCode
+  {code} = require('uglify-js').minify code, fromString: true
+  fs.writeFileSync 'extras/coffee-script.js', header + '\n' + code
   console.log "built ... running browser tests:"
+  invoke 'test:browser'
   console.log "build done ..."
 
 task 'doc:site', 'watch and continually rebuild the documentation for the website', ->
