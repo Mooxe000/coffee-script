@@ -135,59 +135,51 @@ task 'build:parser', 'rebuild the Jison parser (run build first)', ->
   parser = require('./lib/coffee-script/grammar').parser
   fs.writeFile 'lib/coffee-script/parser.js', parser.generate()
 
-task 'build:browser', 'rebuild the merged script for inclusion in the browser', ->
+wrapCode = (hasbrowser) ->
+  packageArr = ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script']
+  packageArr.push 'browser' if hasbrowser?
   code = ''
-  for name in ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script', 'browser']
+  for name in packageArr
     code += """
-      require['./#{name}'] = (function() {
-        var exports = {}, module = {exports: exports};
-        #{fs.readFileSync "lib/coffee-script/#{name}.js"}
-        return module.exports;
-      })();
+    require['./#{name}'] = (function() {
+      var exports = {}, module = {exports: exports};
+      #{fs.readFileSync "lib/coffee-script/#{name}.js"}
+      return module.exports;
+    })();
     """
-  code = """
+  code += """
     (function(root) {
       var CoffeeScript = function() {
         function require(path){ return require[path]; }
         #{code}
         return require['./coffee-script'];
       }();
-
       if (typeof define === 'function' && define.amd) {
         define(function() { return CoffeeScript; });
+      } else if (typeof define === 'function' && define.cmd) {
+        define(function( require, exports, module ) {
+          module.exports = CoffeeScript;
+        });
       } else {
         root.CoffeeScript = CoffeeScript;
       }
     }(this));
   """
+  code
+
+task 'build:browser', 'rebuild the merged script for inclusion in the browser', ->
+  code = wrapCode(true)
+  minCode = require('uglify-js').minify code, fromString: true
   fs.writeFileSync 'extras/coffee-script.browser.debug.js', header + '\n' + code
-  {code} = require('uglify-js').minify code, fromString: true
-  fs.writeFileSync 'extras/coffee-script.browser.js', header + '\n' + code
-  fs.writeFileSync 'extras/coffee-script.js', header + '\n' + code
-  console.log "built ... running browser tests:"
+  fs.writeFileSync 'extras/coffee-script.browser.js', header + '\n' + minCode
   invoke 'test:browser'
 
-task 'build:seajs', 'rebuild the merged script for seajs in the browser', ->
-  code = ''
-  for name in ['helpers', 'rewriter', 'lexer', 'parser', 'scope', 'nodes', 'sourcemap', 'coffee-script']
-    code += """
-      define('./#{name}', [],function(require, exports, module) {
-        #{fs.readFileSync "lib/coffee-script/#{name}.js"}
-        return module.exports;
-      });
-    """
-  code = """
-    define(function(require, exports, module) {
-      var CoffeeScript = function() {
-        #{code}
-        return require('./coffee-script');
-      }();
-      return module.exports = CoffeeScript;
-    });
-  """
-  fs.writeFileSync 'extras/coffee-script.seajs.debug.js', header + '\n' + code
-  {code} = require('uglify-js').minify code, fromString: true
-  fs.writeFileSync 'extras/coffee-script.seajs.js', header + '\n' + code
+task 'build:module', 'rebuild the merged script for seajs in the browser', ->
+  code = wrapCode()
+  minCode = require('uglify-js').minify code, fromString: true
+  fs.writeFileSync 'extras/coffee-script.debug.js', header + '\n' + code
+  fs.writeFileSync 'extras/coffee-script.js', header + '\n' + minCode
+  console.log "built ... running browser tests:"
   console.log "build done ..."
 
 task 'doc:site', 'watch and continually rebuild the documentation for the website', ->
